@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GravaBin
+GenericName=ESP Flash Tool
+Comment=Gravador de binários ESP8266/ESP32
+Exec=bash -c "cd %k/.. && ./run.sh"
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Electronics;
+Keywords=ESP32;ESP8266;flash;esptool;
