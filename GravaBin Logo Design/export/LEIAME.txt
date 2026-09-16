@@ -1,0 +1,41 @@
+GravaBin - simbolo (direcao 3a "Antena")
+========================================
+
+Arquivos
+--------
+gravabin.svg          simbolo neutro, trilha em cinza medio (funciona em fundo claro e escuro)
+gravabin-claro.svg    para fundo claro
+gravabin-escuro.svg   para fundo escuro
+gravabin-mono.svg     uma cor so, usa currentColor (herda a cor do texto ao redor)
+gravabin-cheio.svg    trilha 100% preenchida (estado "gravacao concluida")
+icones/               PNG com fundo transparente: 16, 32, 48, 64, 128, 256, 512
+gravabin.desktop      atalho de aplicativo
+
+Cores
+-----
+trilha vazia (neutro)  #a9a39e
+trilha vazia (claro)   #d7d3d1
+trilha vazia (escuro)  #47413d
+progresso              #f47f46   /  #ff935a em fundo escuro
+tinta                  #141414
+
+O simbolo estatico congela em 62% do percurso. A trilha inteira mede
+487 unidades (4 hastes de 88 + 3 conexoes de 45); para animar, preencha
+na ordem: haste 1 (desce), conexao 1 (direita), haste 2 (sobe),
+conexao 2 (direita), haste 3 (desce), conexao 3 (direita), haste 4 (sobe).
+
+Instalacao no Linux
+-------------------
+  mkdir -p ~/.local/share/icons/hicolor/{16x16,32x32,48x48,64x64,128x128,256x256,512x512}/apps
+  for n in 16 32 48 64 128 256 512; do
+    cp icones/gravabin-$n.png ~/.local/share/icons/hicolor/${n}x${n}/apps/gravabin.png
+  done
+  cp gravabin.svg ~/.local/share/icons/hicolor/scalable/apps/gravabin.svg
+  cp gravabin.desktop ~/.local/share/applications/
+  update-desktop-database ~/.local/share/applications
+  gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor
+
+Na janela Tkinter
+-----------------
+  from tkinter import PhotoImage
+  janela.iconphoto(True, PhotoImage(file="icones/gravabin-128.png"))

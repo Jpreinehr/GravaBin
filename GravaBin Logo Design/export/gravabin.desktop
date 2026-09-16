@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=GravaBin
+GenericName=Gravador de firmware ESP32
+Comment=Grava arquivos .bin em placas ESP32 e ESP8266
+Exec=gravabin
+Icon=gravabin
+Terminal=false
+Categories=Development;Electronics;
+Keywords=ESP32;ESP8266;firmware;flash;esptool;gravador;
+StartupNotify=true

@@ -1,0 +1,13 @@
+# Editor
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Artefatos de build do .deb
+/build/
+/dist/
+*.deb
+gravabin_*_all/
