@@ -7,8 +7,21 @@ set -e
 cd "$(dirname "$0")"
 
 PKG_NAME="gravabin"
-PKG_VERSION="1.0.1"
-PKG_ARCH="all"
+PKG_VERSION="1.1.0"
+# O arduino-cli embutido é um binário nativo: um .deb por arquitetura.
+# Padrão = arquitetura desta máquina; para outra: PKG_ARCH=arm64 bash build_deb.sh
+PKG_ARCH="${PKG_ARCH:-$(dpkg --print-architecture 2>/dev/null || echo amd64)}"
+
+# arduino-cli embutido (modo compilador). Ao trocar a versão, confira a
+# release em https://github.com/arduino/arduino-cli/releases
+ARDUINO_CLI_VERSION="1.5.1"
+case "$PKG_ARCH" in
+    amd64) ARDUINO_CLI_ASSET="Linux_64bit" ;;
+    arm64) ARDUINO_CLI_ASSET="Linux_ARM64" ;;
+    armhf) ARDUINO_CLI_ASSET="Linux_ARMv7" ;;
+    i386)  ARDUINO_CLI_ASSET="Linux_32bit" ;;
+    *) echo "ERRO: arquitetura sem arduino-cli oficial: $PKG_ARCH"; exit 1 ;;
+esac
 
 # Diretórios de trabalho (ignorados pelo git):
 #   build/ -> staging do pacote     dist/ -> .deb final
@@ -29,6 +42,7 @@ echo "==> Verificando dependências de build..."
 
 missing=()
 command -v dpkg-deb >/dev/null 2>&1 || missing+=("dpkg-dev")
+command -v curl >/dev/null 2>&1 || missing+=("curl")
 
 # Conversor SVG->PNG só é necessário para tamanhos sem PNG pronto em icones/.
 if command -v rsvg-convert >/dev/null 2>&1; then
@@ -56,6 +70,28 @@ echo "    Conversor de ícone: ${ICON_CONV:-(nenhum; usando PNGs prontos)}"
 echo "    dpkg-deb: OK"
 
 # ---------------------------------------------------------------------------
+echo "==> Obtendo arduino-cli ${ARDUINO_CLI_VERSION} (${ARDUINO_CLI_ASSET})..."
+CLI_CACHE="${BUILD_DIR}/cache"
+CLI_TGZ="arduino-cli_${ARDUINO_CLI_VERSION}_${ARDUINO_CLI_ASSET}.tar.gz"
+CLI_SUMS="arduino-cli_${ARDUINO_CLI_VERSION}_checksums.txt"
+mkdir -p "$CLI_CACHE"
+if [ ! -f "$CLI_CACHE/$CLI_TGZ" ]; then
+    curl -fL --retry 3 -o "$CLI_CACHE/$CLI_TGZ.part" \
+        "https://downloads.arduino.cc/arduino-cli/$CLI_TGZ"
+    mv "$CLI_CACHE/$CLI_TGZ.part" "$CLI_CACHE/$CLI_TGZ"
+fi
+if [ ! -f "$CLI_CACHE/$CLI_SUMS" ]; then
+    curl -fL --retry 3 -o "$CLI_CACHE/$CLI_SUMS" \
+        "https://github.com/arduino/arduino-cli/releases/download/v${ARDUINO_CLI_VERSION}/${ARDUINO_CLI_VERSION}-checksums.txt"
+fi
+# Confere o SHA-256 contra a lista oficial da release antes de empacotar.
+(cd "$CLI_CACHE" && grep " ${CLI_TGZ}\$" "$CLI_SUMS" | sha256sum -c --quiet -) || {
+    echo "ERRO: checksum do arduino-cli não confere. Apague $CLI_CACHE e tente de novo."
+    exit 1
+}
+echo "    checksum OK"
+
+# ---------------------------------------------------------------------------
 echo "==> Criando estrutura de diretórios do pacote..."
 rm -rf "$PKG_DIR"
 mkdir -p "$BUILD_DIR" "$DIST_DIR"
@@ -68,6 +104,7 @@ mkdir -p "$PKG_DIR/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "$PKG_DIR/usr/share/pixmaps"
 mkdir -p "$PKG_DIR/usr/share/applications"
 mkdir -p "$PKG_DIR/usr/lib/$PKG_NAME/icones"
+mkdir -p "$PKG_DIR/usr/lib/$PKG_NAME/bin"
 mkdir -p "$PKG_DIR/usr/bin"
 mkdir -p "$PKG_DIR/DEBIAN"
 
@@ -107,7 +144,13 @@ echo "    SVG scalable -> OK"
 # ---------------------------------------------------------------------------
 echo "==> Copiando arquivos da aplicação..."
 cp gravabin.py      "$PKG_DIR/usr/lib/$PKG_NAME/"
+cp -r gravabin_app   "$PKG_DIR/usr/lib/$PKG_NAME/"
+# Bytecode gerado ao rodar do fonte não deve ir para o pacote.
+find "$PKG_DIR/usr/lib/$PKG_NAME" -name __pycache__ -type d -prune -exec rm -rf {} +
 cp requirements.txt "$PKG_DIR/usr/lib/$PKG_NAME/"
+tar -xzf "$CLI_CACHE/$CLI_TGZ" -C "$PKG_DIR/usr/lib/$PKG_NAME/bin" arduino-cli
+tar -xzf "$CLI_CACHE/$CLI_TGZ" -O LICENSE.txt \
+    > "$PKG_DIR/usr/lib/$PKG_NAME/bin/arduino-cli.LICENSE.txt"
 cp "$LOGO_SVG"      "$PKG_DIR/usr/lib/$PKG_NAME/icon.svg"
 # Logo em vários tamanhos (usado pelo canto da interface e pelo ícone da janela)
 cp "$LOGO_PNG_DIR"/gravabin-*.png "$PKG_DIR/usr/lib/$PKG_NAME/icones/"
@@ -167,7 +210,9 @@ Description: Gravador gráfico de binários para ESP8266/ESP32
  Interface gráfica (Tkinter) para gravação de firmware em dispositivos
  ESP8266 e ESP32 usando o esptool. Suporta múltiplos binários com
  offsets configuráveis, seleção de porta serial, baud rate, modo e
- frequência de flash.
+ frequência de flash. Inclui gravação simultânea em várias portas e um
+ modo compilador para sketches .ino (via arduino-cli embutido), com
+ gerenciador de placas e de bibliotecas compatível com o Arduino IDE.
 EOF
 
 # ---------------------------------------------------------------------------
@@ -238,6 +283,7 @@ echo "==> Ajustando permissões..."
 find "$PKG_DIR" -type d -exec chmod 755 {} \;
 find "$PKG_DIR/usr" -type f -exec chmod 644 {} \;
 chmod 755 "$PKG_DIR/usr/bin/$PKG_NAME"
+chmod 755 "$PKG_DIR/usr/lib/$PKG_NAME/bin/arduino-cli"
 chmod 755 "$PKG_DIR/DEBIAN/postinst" \
           "$PKG_DIR/DEBIAN/prerm" \
           "$PKG_DIR/DEBIAN/postrm"

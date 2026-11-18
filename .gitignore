@@ -11,3 +11,6 @@ __pycache__/
 /dist/
 *.deb
 gravabin_*_all/
+
+# arduino-cli local (rodando do código-fonte)
+/bin/
